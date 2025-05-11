@@ -17,11 +17,13 @@ model User {
   email     String      @unique
   password  String      // store hashed passwords
   role      String      @default("therapist")
+  image     String
   patients  Patient[]
   notes     Note[]
   appointments Appointment[]
 
   createdAt DateTime    @default(now())
+  updatedAT DateTime  @updatedAt
 }
 model Patient {
   id           String        @id @default(uuid())
