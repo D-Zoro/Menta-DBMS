@@ -1,0 +1,79 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  // output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String      @id @default(uuid())
+  name      String
+  email     String      @unique
+  password  String      // store hashed passwords
+  role      String      @default("therapist")
+  patients  Patient[]
+  notes     Note[]
+  appointments Appointment[]
+
+  createdAt DateTime    @default(now())
+}
+model Patient {
+  id           String        @id @default(uuid())
+  name         String
+  age          Int?
+  gender       String?
+  contactInfo  String?
+  doctor       User          @relation(fields: [doctorId], references: [id])
+  doctorId     String
+
+  assessments  Assessment[]
+  appointments Appointment[]
+  notes        Note[]
+
+  createdAt    DateTime      @default(now())
+}
+
+model Assessment {
+  id         String     @id @default(uuid())
+  type       String     // e.g., PHQ-9, GAD-7
+  score      Int
+  comments   String?
+
+  patient    Patient    @relation(fields: [patientId], references: [id])
+  patientId  String
+
+  assessedOn DateTime   @default(now())
+}
+
+model Appointment {
+  id             String    @id @default(uuid())
+  scheduledAt    DateTime
+  durationMinutes Int      @default(60)
+  notes          String?
+
+  patient        Patient   @relation(fields: [patientId], references: [id])
+  patientId      String
+
+  doctor         User      @relation(fields: [doctorId], references: [id])
+  doctorId       String
+}
+
+model Note {
+  id         String     @id @default(uuid())
+  note       String
+
+  patient    Patient    @relation(fields: [patientId], references: [id])
+  patientId  String
+
+  doctor     User       @relation(fields: [doctorId], references: [id])
+  doctorId   String
+
+  createdAt  DateTime   @default(now())
+}
+

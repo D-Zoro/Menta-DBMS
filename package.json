@@ -1,0 +1,32 @@
+{
+  "name": "menta-dbms",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "type":"module"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.7.0",
+    "bcryptjs": "^3.0.2",
+    "dotenv": "^16.5.0",
+    "next": "15.3.2",
+    "next-auth": "^4.24.11",
+    "pg": "^8.15.6",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "ts-node": "^10.9.2"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20.17.46",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "prisma": "^6.7.0",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
