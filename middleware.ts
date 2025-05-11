@@ -1,19 +1,17 @@
-import { NextResponse } from 'next/server'
-import { NextRequestWithAuth, withAuth } from 'next-auth/middleware'
+import { withAuth } from "next-auth/middleware";
+import { NextResponse } from "next/server";
 
 export default withAuth(
-  function middleware(request: NextRequestWithAuth) {
-    // Add any custom logic here
-    return NextResponse.next()
+  function middleware(req) {
+    return NextResponse.next();
   },
   {
     callbacks: {
-      authorized: ({ token }) => !!token, // If there is a token, the user is authorized
+      authorized: ({ token }) => !!token,
     },
   }
-)
+);
 
-// Specify which routes should be protected
 export const config = {
-  matcher: ['/dashboard/:path*', '/api/protected/:path*'],
-}
+  matcher: ["/dashboard/:path*", "/api/dashboard/:path*"],
+};

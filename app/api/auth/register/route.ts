@@ -28,6 +28,18 @@ export async function POST(request: Request) {
       );
     }
     
+    // Check if email is verified through OTP
+    const otpVerification = await prisma.otpVerification.findUnique({
+      where: { email },
+    });
+    
+    if (!otpVerification || !otpVerification.verified) {
+      return NextResponse.json(
+        { message: 'Email must be verified before registration' },
+        { status: 400 }
+      );
+    }
+    
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
     
@@ -37,16 +49,23 @@ export async function POST(request: Request) {
         name,
         email,
         password: hashedPassword,
+        image: '', // Provide a default value for the required 'image' field
       },
+    });
+    
+    // Clean up OTP record
+    await prisma.otpVerification.delete({
+      where: { email },
     });
     
     // Return success without exposing password
     const { password: _, ...userWithoutPassword } = user;
     
     return NextResponse.json(
-      { message: 'User created successfully', user: userWithoutPassword },
+      { message: 'User registered successfully', user: userWithoutPassword },
       { status: 201 }
     );
+    
   } catch (error: any) {
     console.error('Registration error:', error);
     

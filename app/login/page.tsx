@@ -42,20 +42,27 @@ export default function LoginPage() {
     
     try {
       // Call NextAuth signIn method
+      console.log("Attempting to sign in with:", formData.email);
+      
       const result = await signIn("credentials", {
         redirect: false,
         email: formData.email,
         password: formData.password,
       });
       
+      console.log("Sign in result:", result);
+      
       if (result?.error) {
         // Show specific error from authentication
         setErrorMsg(result.error || "Login failed. Please check your credentials.");
       } else if (result?.ok) {
-        console.log("Login successful!");
-        // Redirect to dashboard on success
-        router.push("/dashboard");
-        router.refresh(); // Ensure the UI reflects the authenticated state
+        console.log("Login successful! Redirecting to dashboard...");
+        
+        // Short delay before redirect (sometimes helps with session storage)
+        setTimeout(() => {
+          router.push("/dashboard");
+          router.refresh();
+        }, 100);
       }
     } catch (error) {
       console.error("Login error:", error);
