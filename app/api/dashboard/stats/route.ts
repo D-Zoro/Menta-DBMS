@@ -4,13 +4,18 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../../auth/[...nextauth]/route';
 import { startOfDay, endOfDay, startOfMonth, endOfMonth, format } from 'date-fns';
 
+// Add BigInt serialization support
+(BigInt.prototype as any).toJSON = function() {
+  return Number(this);
+};
+
 const prisma = new PrismaClient();
 
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session || !session.user.id) {
+    if (!session || !session.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
@@ -21,23 +26,23 @@ export async function GET(req: NextRequest) {
     const monthStart = startOfMonth(today);
     const monthEnd = endOfMonth(today);
     
-    // Get total patients
-    const totalPatients = await prisma.patient.count({
+    // Get total patients - convert to number to avoid BigInt issues
+    const totalPatients = Number(await prisma.patient.count({
       where: { doctorId }
-    });
+    }));
     
     // Get upcoming appointments count
-    const upcomingAppointments = await prisma.appointment.count({
+    const upcomingAppointments = Number(await prisma.appointment.count({
       where: {
         doctorId,
         scheduledAt: {
           gte: today
         }
       }
-    });
+    }));
     
     // Get today's appointments count
-    const appointmentsToday = await prisma.appointment.count({
+    const appointmentsToday = Number(await prisma.appointment.count({
       where: {
         doctorId,
         scheduledAt: {
@@ -45,10 +50,10 @@ export async function GET(req: NextRequest) {
           lte: todayEnd
         }
       }
-    });
+    }));
     
     // Get recent assessments count (last 30 days)
-    const recentAssessments = await prisma.assessment.count({
+    const recentAssessments = Number(await prisma.assessment.count({
       where: {
         patient: {
           doctorId
@@ -57,33 +62,38 @@ export async function GET(req: NextRequest) {
           gte: new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000)
         }
       }
-    });
+    }));
     
     // Get patients by gender
-    const patientsByGender = await prisma.$queryRaw<
-      { male: number; female: number; other: number }[]
-    >`
-      SELECT
-        SUM(CASE WHEN gender = 'male' THEN 1 ELSE 0 END) as male,
-        SUM(CASE WHEN gender = 'female' THEN 1 ELSE 0 END) as female,
-        SUM(CASE WHEN gender IS NULL OR gender NOT IN ('male', 'female') THEN 1 ELSE 0 END) as other
-      FROM "Patient"
-      WHERE "doctorId" = ${doctorId}
-    `;
+    const patients = await prisma.patient.findMany({
+      where: { doctorId },
+      select: { gender: true }
+    });
+    
+    // Calculate gender distribution
+    const patientsByGender = {
+      male: patients.filter(p => p.gender?.toLowerCase() === 'male').length,
+      female: patients.filter(p => p.gender?.toLowerCase() === 'female').length,
+      other: patients.filter(p => !p.gender || !['male', 'female'].includes(p.gender.toLowerCase())).length
+    };
     
     // Get appointments by day for the current month
-    const appointmentDays = await prisma.$queryRaw`
-      SELECT 
-        DATE("scheduledAt") as date,
-        COUNT(*) as count
-      FROM "Appointment"
-      WHERE 
-        "doctorId" = ${doctorId} AND
-        "scheduledAt" >= ${monthStart} AND
-        "scheduledAt" <= ${monthEnd}
-      GROUP BY DATE("scheduledAt")
-      ORDER BY date ASC
-    `;
+    const appointmentsByDay = await prisma.appointment.groupBy({
+      by: ['scheduledAt'],
+      where: {
+        doctorId,
+        scheduledAt: {
+          gte: monthStart,
+          lte: monthEnd
+        }
+      },
+      _count: true
+    });
+    
+    const formattedAppointmentsByDay = appointmentsByDay.map(item => ({
+      date: format(item.scheduledAt, 'yyyy-MM-dd'),
+      count: Number(item._count)
+    }));
     
     // Get recent assessment scores
     const assessments = await prisma.assessment.findMany({
@@ -108,22 +118,26 @@ export async function GET(req: NextRequest) {
     const assessmentScores = assessments.map(a => ({
       patient: a.patient.name,
       type: a.type,
-      score: a.score
+      score: Number(a.score) // Convert possible BigInt to Number
     }));
-    
-    return NextResponse.json({
+
+    // Serialize the response data to handle any potential BigInt values
+    const responseData = {
       totalPatients,
       upcomingAppointments,
       appointmentsToday,
       recentAssessments,
-      patientsByGender: patientsByGender[0] || { male: 0, female: 0, other: 0 },
-      appointmentsByDay: appointmentDays,
+      patientsByGender,
+      appointmentsByDay: formattedAppointmentsByDay,
       assessmentScores
-    });
-  } catch (error) {
+    };
+    
+    return NextResponse.json(responseData);
+    
+  } catch (error: any) {
     console.error('Error fetching dashboard stats:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch dashboard statistics' },
+      { error: 'Failed to fetch dashboard statistics', details: error.message },
       { status: 500 }
     );
   }
